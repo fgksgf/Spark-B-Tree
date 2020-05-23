@@ -1,11 +1,12 @@
 import java.io.*;
-import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.alibaba.fastjson.JSON;
 
 
 /**
- * @author Huaxi Jiang
+ * @author Hoshea
  */
 public class Main {
 
@@ -61,14 +62,26 @@ public class Main {
 
     public static void main(String[] args) {
 //            generateJsonFile();
-        saveJsonFile(JSON.toJSONString(new Data(1000)), "out", "1GB");
-//        Class<Person> personClass = Person.class;
-//        //获取所有的成员变量，包含私有的
-//        Field[] fields = personClass.getDeclaredFields();
-//        for (int i = 0; i < fields.length; i++) {
-//            System.out.println("变量名: " + fields[i].getName());
-//        }
+//        saveJsonFile(JSON.toJSONString(new Data(1000)), "out", "1GB");
+        Data data = new Data();
+        List<Person> people = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            people.add(new Person());
+        }
+        data.setPeople(people);
 
+        try {
+            for (int i = 0; i < 10; i++) {
+                QueryCondition qc = RandomUtil.getRandomCondition();
+                List<Person> result = data.query(qc);
+                Data r = new Data();
+                r.setPeople(result);
+                saveJsonFile(JSON.toJSONString(r), "out", "res-" + qc.toString());
+            }
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
+//            saveJsonFile(JSON.toJSONString(data), "out", "test");
 //        for (int i = 0; i < 10; i++) {
 //            System.out.println(RandomUtil.getRandomCondition());
 //        }

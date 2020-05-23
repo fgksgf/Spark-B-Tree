@@ -1,5 +1,6 @@
-import javax.swing.*;
-
+/**
+ * @author Hoshea
+ */
 public class QueryCondition {
     private String field;
     private String operator;
@@ -11,6 +12,27 @@ public class QueryCondition {
     private String template;
     private boolean isTypeOne;
 
+    public QueryCondition(String con) {
+        String[] temp = con.split(" ");
+        if (temp.length == 3) {
+            this.template = "%s %s %d";
+            this.isTypeOne = true;
+
+            this.field = temp[0];
+            this.operator = temp[1];
+            this.value = Integer.parseInt(temp[2]);
+        } else if (temp.length == 5) {
+            this.template = "%d %s %s %s %d";
+            this.isTypeOne = false;
+
+            this.leftValue = Integer.parseInt(temp[0]);
+            this.leftOperator = temp[1];
+            this.field = temp[2];
+            this.rightOperator = temp[3];
+            this.rightValue = Integer.parseInt(temp[4]);
+        }
+    }
+
     public QueryCondition(String field, String operator, int value) {
         // field > v; field >= v; field < v; field <= v; field == v
         this.template = "%s %s %d";
@@ -20,7 +42,6 @@ public class QueryCondition {
         this.operator = operator;
         this.value = value;
     }
-
 
     public QueryCondition(int leftValue, String leftOperator, String field, String rightOperator, int rightValue) {
         // v1 < field < v2; v1 < field <= v2; v1 <= field < v2; v1 <= field <= v2

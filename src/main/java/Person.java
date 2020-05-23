@@ -1,8 +1,10 @@
-import com.alibaba.fastjson.annotation.JSONField;
-
-import java.util.Comparator;
 import java.util.List;
 
+import com.alibaba.fastjson.annotation.JSONField;
+
+/**
+ * @author Hoshea
+ */
 public class Person {
     @JSONField(ordinal = 1)
     private String name;
@@ -67,29 +69,5 @@ public class Person {
 
     public void setFeatures(List<Float> features) {
         this.features = features;
-    }
-}
-
-class AgeComparator implements Comparator<Person> {
-    public int compare(Person p1, Person p2) {
-        if (p1.getAge() < p2.getAge()) {
-            return -1;
-        } else if (p1.getAge() == p2.getAge()) {
-            return 0;
-        } else {
-            return 1;
-        }
-    }
-}
-
-class SalaryComparator implements Comparator<Person> {
-    public int compare(Person p1, Person p2) {
-        if (p1.getSalary() < p2.getSalary()) {
-            return -1;
-        } else if (p1.getSalary() == p2.getSalary()) {
-            return 0;
-        } else {
-            return 1;
-        }
     }
 }

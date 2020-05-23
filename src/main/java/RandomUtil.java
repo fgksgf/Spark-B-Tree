@@ -2,6 +2,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * @author Hoshea
+ */
 public class RandomUtil {
     private static final int SEED = 42;
 
@@ -12,9 +15,8 @@ public class RandomUtil {
     private static final int MAX_SALARY = 50000;
     private static final int FEATURE_NUM = 5;
     private static final Random RANDOM = new Random(SEED);
-    private static final String ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private static final String[] OPERATORS = {">", ">=", "<", "<=", "=="};
-    private static final String[] CONDITION_TYPE_TWO = {"%d < %s < %d", "%d < %s <= %d", "%d <= %s < %d", "%d <= %s <= %d"};
+    private static final String ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     /**
      * 随机产生一个[left, right]范围内的整数
@@ -87,7 +89,7 @@ public class RandomUtil {
      *
      * @return
      */
-    public static String getRandomCondition() {
+    public static QueryCondition getRandomCondition() {
         QueryCondition ret;
         String field = null;
         int v, v1, v2;
@@ -112,6 +114,6 @@ public class RandomUtil {
             int rightType = getRandomInt(2, 3);
             ret = new QueryCondition(v1, OPERATORS[leftType], field, OPERATORS[rightType], v2);
         }
-        return ret.toString();
+        return ret;
     }
 }

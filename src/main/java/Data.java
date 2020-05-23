@@ -1,10 +1,13 @@
+import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
+/**
+ * @author Hoshea
+ */
 public class Data {
     private static final int COUNT_PER_MB = 8400;
-    private List<Person> people = new ArrayList<Person>();
+    private List<Person> people;
 
     /**
      * 生成指定大小的数据，单位为MB
@@ -12,10 +15,13 @@ public class Data {
      * @param mb
      */
     public Data(int mb) {
+        this.people = new ArrayList<>();
         for (int i = 0; i < mb * COUNT_PER_MB; i++) {
             this.people.add(new Person());
         }
     }
+
+    public Data() {}
 
     public List<Person> getPeople() {
         return people;
@@ -25,21 +31,67 @@ public class Data {
         this.people = people;
     }
 
-    public List<Person> query(QueryCondition qc) {
-        List<Person> ret = new ArrayList<Person>();
+    public List<Person> query(QueryCondition qc) throws NoSuchFieldException, IllegalAccessException {
+        List<Person> ret = new ArrayList<>();
 
-        if (qc.getField().equals("age")) {
-            Collections.sort(people, new AgeComparator());
-        } else if (qc.getField().equals("salary")) {
-            Collections.sort(people, new SalaryComparator());
-        }
+        Field field = Person.class.getDeclaredField(qc.getField());
+        field.setAccessible(true);
 
         if (qc.isTypeOne()) {
-            for (int i = 0; i < people.size(); i++) {
-
+            for (Person p : people) {
+                int v = (int) field.get(p);
+                switch (qc.getOperator()) {
+                    case "<":
+                        if (v < qc.getValue()) {
+                            ret.add(p);
+                        }
+                        break;
+                    case "<=":
+                        if (v <= qc.getValue()) {
+                            ret.add(p);
+                        }
+                        break;
+                    case ">":
+                        if (v > qc.getValue()) {
+                            ret.add(p);
+                        }
+                        break;
+                    case ">=":
+                        if (v >= qc.getValue()) {
+                            ret.add(p);
+                        }
+                        break;
+                    case "==":
+                        if (v == qc.getValue()) {
+                            ret.add(p);
+                        }
+                        break;
+                }
             }
         } else {
+            for (Person p : people) {
+                int v = (int) field.get(p);
+                String leftOp = qc.getLeftOperator();
+                String rightOp = qc.getRightOperator();
 
+                if (leftOp.equals("<") && rightOp.equals("<")) {
+                    if (qc.getLeftValue() < v && v < qc.getRightValue()) {
+                        ret.add(p);
+                    }
+                } else if (leftOp.equals("<") && rightOp.equals("<=")) {
+                    if (qc.getLeftValue() < v && v <= qc.getRightValue()) {
+                        ret.add(p);
+                    }
+                } else if (leftOp.equals("<=") && rightOp.equals("<=")) {
+                    if (qc.getLeftValue() <= v && v <= qc.getRightValue()) {
+                        ret.add(p);
+                    }
+                } else if (leftOp.equals("<=") && rightOp.equals("<")) {
+                    if (qc.getLeftValue() <= v && v < qc.getRightValue()) {
+                        ret.add(p);
+                    }
+                }
+            }
         }
 
         return ret;
