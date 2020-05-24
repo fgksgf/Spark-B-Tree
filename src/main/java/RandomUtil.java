@@ -1,3 +1,12 @@
+import com.google.gson.Gson;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -17,6 +26,10 @@ public class RandomUtil {
     private static final int MAX_SALARY = 50000;
     private static final int FEATURE_NUM = 5;
     private static final Random RANDOM = new Random(SEED);
+
+    // 每1MB数据对应的大致数据条数
+    private static final int COUNT_PER_MB = 8300;
+
     private static final String[] OPERATORS = {">", ">=", "<", "<=", "=="};
     private static final String ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -110,7 +123,7 @@ public class RandomUtil {
             field = "age";
             v = getRandomAge();
             v1 = getRandomInt(MIN_AGE, MAX_AGE - 2);
-            v2 = getRandomInt(v1 + 1, MAX_AGE);
+            v2 = getRandomInt(v1 + 2, MAX_AGE);
         } else {
             field = "salary";
             v = getRandomSalary();
@@ -127,5 +140,129 @@ public class RandomUtil {
             ret = new QueryCondition(v1, OPERATORS[leftType], field, OPERATORS[rightType], v2);
         }
         return ret;
+    }
+
+    /**
+     * 在指定目录下随机生成一个指定大小的json数据文件
+     *
+     * @param saveDir 文件保存路径
+     * @param mb      文件大小，单位为MB
+     * @return 生成文件的完整路径
+     */
+    public static String generateJsonFile(String saveDir, int mb) {
+        Gson gson = new Gson();
+        String fileName = mb + "MB.json";
+        String fullPath = saveDir + File.separator + fileName;
+
+        try {
+            JsonWriter writer = new JsonWriter(new FileWriter(fullPath));
+            writer.beginArray();
+            for (int i = 0; i < COUNT_PER_MB * mb; ++i) {
+                gson.toJson(new Person(), Person.class, writer);
+            }
+            writer.endArray();
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.out.println("Failed: generate " + fileName);
+        }
+        System.out.println("Done: generate" + fileName);
+        return fullPath;
+    }
+
+    /**
+     * 从指定路径读取json文件进行查询，将符合条件的结果保存为json文件
+     *
+     * @param readPath  读取文件完整路径
+     * @param writePath 保存结果文件的完整路径
+     * @param qc        查询条件
+     */
+    public static void generateQueryResult(String readPath, String writePath, QueryCondition qc) {
+        Gson gson = new Gson();
+        Field field = null;
+        try {
+            field = Person.class.getDeclaredField(qc.getField());
+            field.setAccessible(true);
+        } catch (NoSuchFieldException e) {
+            e.printStackTrace();
+            System.out.println("Failed: generate result file " + writePath);
+            return;
+        }
+
+        try {
+            JsonReader reader = new JsonReader(new FileReader(readPath));
+            JsonWriter writer = new JsonWriter(new FileWriter(writePath));
+
+            reader.beginArray();
+            writer.beginArray();
+            while (reader.hasNext()) {
+                Person p = gson.fromJson(reader, Person.class);
+                boolean flag = false;
+
+                if (qc.isTypeOne()) {
+                    int v = (int) field.get(p);
+                    switch (qc.getOperator()) {
+                        case "<":
+                            if (v < qc.getValue()) {
+                                flag = true;
+                            }
+                            break;
+                        case "<=":
+                            if (v <= qc.getValue()) {
+                                flag = true;
+                            }
+                            break;
+                        case ">":
+                            if (v > qc.getValue()) {
+                                flag = true;
+                            }
+                            break;
+                        case ">=":
+                            if (v >= qc.getValue()) {
+                                flag = true;
+                            }
+                            break;
+                        case "==":
+                            if (v == qc.getValue()) {
+                                flag = true;
+                            }
+                            break;
+                    }
+                } else {
+                    int v = (int) field.get(p);
+                    String leftOp = qc.getLeftOperator();
+                    String rightOp = qc.getRightOperator();
+
+                    if (leftOp.equals("<") && rightOp.equals("<")) {
+                        if (qc.getLeftValue() < v && v < qc.getRightValue()) {
+                            flag = true;
+                        }
+                    } else if (leftOp.equals("<") && rightOp.equals("<=")) {
+                        if (qc.getLeftValue() < v && v <= qc.getRightValue()) {
+                            flag = true;
+                        }
+                    } else if (leftOp.equals("<=") && rightOp.equals("<=")) {
+                        if (qc.getLeftValue() <= v && v <= qc.getRightValue()) {
+                            flag = true;
+                        }
+                    } else if (leftOp.equals("<=") && rightOp.equals("<")) {
+                        if (qc.getLeftValue() <= v && v < qc.getRightValue()) {
+                            flag = true;
+                        }
+                    }
+                }
+                if (flag) {
+                    gson.toJson(p, Person.class, writer);
+                }
+            }
+            reader.endArray();
+            reader.close();
+            writer.endArray();
+            writer.close();
+        } catch (IOException | IllegalAccessException e) {
+            e.printStackTrace();
+            System.out.println("Failed: generate result file " + writePath);
+        }
+        System.out.println("Done: generate result file " + writePath);
     }
 }

@@ -1,24 +1,13 @@
 import java.util.List;
 
-import com.alibaba.fastjson.annotation.JSONField;
-
 /**
  * @author Hoshea
  */
 public class Person {
-    @JSONField(ordinal = 1)
     private String name;
-
-    @JSONField(ordinal = 2)
     private String sex;
-
-    @JSONField(ordinal = 3)
     private int age;
-
-    @JSONField(ordinal = 4)
     private int salary;
-
-    @JSONField(ordinal = 5)
     private List<Float> features;
 
     private static final int NAME_LEN = 5;

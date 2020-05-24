@@ -1,95 +1,28 @@
-import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
-
-import com.alibaba.fastjson.JSON;
-
+import java.io.File;
 
 /**
  * @author Hoshea
  */
 public class Main {
 
-    /**
-     * Save a json string into a json file.
-     *
-     * @param jsonString
-     * @param filePath
-     * @param fileName   The file name without postfix.
-     * @return If the process success, return true, else return false.
-     */
-    private static boolean saveJsonFile(String jsonString, String filePath, String fileName) {
-        // 标记文件生成是否成功
-        boolean flag = true;
-
-        // 拼接文件完整路径
-        String fullPath = filePath + File.separator + fileName + ".json";
-
-        // 生成json格式文件
-        try {
-            // 保证创建一个新文件
-            File file = new File(fullPath);
-            if (!file.getParentFile().exists()) { // 如果父目录不存在，创建父目录
-                file.getParentFile().mkdirs();
-            }
-            if (file.exists()) { // 如果已存在,删除旧文件
-                file.delete();
-            }
-            file.createNewFile();
-
-            // 将格式化后的字符串写入文件
-            Writer write = new OutputStreamWriter(new FileOutputStream(file), "UTF-8");
-            write.write(jsonString);
-            write.flush();
-            write.close();
-        } catch (Exception e) {
-            flag = false;
-            e.printStackTrace();
-        }
-
-        // 返回是否成功的标记
-        return flag;
-    }
-
-    /**
-     *
-     */
-    public static void generateJsonFile() {
-        for (int i = 1; i <= 1000; i *= 10) {
-            saveJsonFile(JSON.toJSONString(new Data(i)), "out", i + "MB");
-        }
-    }
-
     public static void main(String[] args) {
-//            generateJsonFile();
-//        saveJsonFile(JSON.toJSONString(new Data(1000)), "out", "1GB");
-        Data data = new Data();
-        List<Person> people = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            people.add(new Person());
-        }
-        data.setPeople(people);
+        final String saveDir = "out";
+        final String suffix = ".json";
 
-        try {
-            for (int i = 0; i < 10; i++) {
+        // 随机生成1MB，10MB，100MB，1000MB的json数据文件
+        for (int i = 1; i <= 1000; i *= 10) {
+            // out/1MB.json
+            String readPath = RandomUtil.generateJsonFile(saveDir, i);
+
+            // 随机产生10个查询条件及对应的结果文件
+            for (int j = 0; j < 10; j++) {
                 QueryCondition qc = RandomUtil.getRandomCondition();
-                List<Person> result = data.query(qc);
-                Data r = new Data();
-                r.setPeople(result);
-                saveJsonFile(JSON.toJSONString(r), "out", "res-" + qc.toString());
+
+                // out/1MB-age > 20.json
+                String resultPath = saveDir + File.separator + i + "MB-" + qc.toString() + suffix;
+
+                RandomUtil.generateQueryResult(readPath, resultPath, qc);
             }
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
         }
-//            saveJsonFile(JSON.toJSONString(data), "out", "test");
-//        for (int i = 0; i < 10; i++) {
-//            System.out.println(RandomUtil.getRandomCondition());
-//        }
-//        try {
-//            计算生成数据的字节数大小
-//            System.out.println(jsonString.getBytes("utf-8").length / 1048576.0);
-//        } catch (UnsupportedEncodingException e) {
-//            e.printStackTrace();
-//        }
     }
 }

@@ -1,5 +1,6 @@
 /**
  * 查询条件类
+ *
  * @author Hoshea
  */
 public class QueryCondition {
@@ -63,6 +64,10 @@ public class QueryCondition {
         } else {
             return String.format(template, leftValue, leftOperator, field, rightOperator, rightValue);
         }
+    }
+
+    public String toJSONPath() {
+        return "[" + this.toString() + "]";
     }
 
     public String getField() {
