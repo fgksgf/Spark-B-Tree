@@ -1,4 +1,5 @@
 /**
+ * 查询条件类
  * @author Hoshea
  */
 public class QueryCondition {

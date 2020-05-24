@@ -3,6 +3,8 @@ import java.util.List;
 import java.util.Random;
 
 /**
+ * 随机生成工具类
+ *
  * @author Hoshea
  */
 public class RandomUtil {
@@ -34,8 +36,10 @@ public class RandomUtil {
     }
 
     /**
-     * @param len
-     * @return
+     * 随机产生一个指定长度、仅包含字母的字符串
+     *
+     * @param len 字符串长度
+     * @return 随机字符串
      */
     public static String getRandomString(int len) {
         StringBuilder sb = new StringBuilder();
@@ -47,7 +51,9 @@ public class RandomUtil {
     }
 
     /**
-     * @return
+     * 随机产生一个性别字符串
+     *
+     * @return "male"或者"female"
      */
     public static String getRandomSex() {
         String ret = null;
@@ -60,21 +66,27 @@ public class RandomUtil {
     }
 
     /**
-     * @return
+     * 随机产生一个 [MIN_AGE, MAX_AGE] 范围内的整数年龄
+     *
+     * @return 随机整数年龄
      */
     public static int getRandomAge() {
         return getRandomInt(MIN_AGE, MAX_AGE);
     }
 
     /**
-     * @return
+     * 随机产生一个 [MIN_SALARY, MAX_SALARY] 范围内的整数工资
+     *
+     * @return 随机整数工资
      */
     public static int getRandomSalary() {
         return getRandomInt(MIN_SALARY / SALARY_STEP, MAX_SALARY / SALARY_STEP) * SALARY_STEP;
     }
 
     /**
-     * @return
+     * 随机产生包含 FEATURE_NUM 个随机浮点数的列表
+     *
+     * @return 元素为浮点数的列表
      */
     public static List<Float> getRandomFeatures() {
         List<Float> ret = new ArrayList<Float>();
@@ -85,13 +97,13 @@ public class RandomUtil {
     }
 
     /**
-     * 随机生成查询条件
+     * 随机生成一个查询条件
      *
-     * @return
+     * @return 随机查询条件
      */
     public static QueryCondition getRandomCondition() {
         QueryCondition ret;
-        String field = null;
+        String field;
         int v, v1, v2;
 
         if (RANDOM.nextBoolean()) {
