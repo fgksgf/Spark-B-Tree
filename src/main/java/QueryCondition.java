@@ -66,10 +66,6 @@ public class QueryCondition {
         }
     }
 
-    public String toJSONPath() {
-        return "[" + this.toString() + "]";
-    }
-
     public String getField() {
         return field;
     }
