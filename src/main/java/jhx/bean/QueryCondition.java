@@ -1,7 +1,9 @@
+package jhx.bean;
+
 /**
  * 查询条件类
  *
- * @author Hoshea
+ * @author Huaxi Jiang
  */
 public class QueryCondition {
     private String field;

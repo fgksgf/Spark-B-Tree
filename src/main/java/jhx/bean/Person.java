@@ -1,7 +1,11 @@
+package jhx.bean;
+
+import jhx.RandomUtil;
+
 import java.util.List;
 
 /**
- * @author Hoshea
+ * @author Huaxi Jiang
  */
 public class Person {
     private String name;

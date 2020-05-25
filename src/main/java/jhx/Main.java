@@ -1,11 +1,16 @@
+package jhx;
+
+import jhx.bean.QueryCondition;
+
 import java.io.File;
 
 /**
- * @author Hoshea
+ * @author Huaxi Jiang
  */
 public class Main {
 
     public static void main(String[] args) {
+        // 生成文件存放的目录
         final String saveDir = "out";
         final String suffix = ".json";
 

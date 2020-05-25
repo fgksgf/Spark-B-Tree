@@ -1,6 +1,10 @@
+package jhx;
+
 import com.google.gson.Gson;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import jhx.bean.Person;
+import jhx.bean.QueryCondition;
 
 import java.io.File;
 import java.io.FileReader;
@@ -14,7 +18,7 @@ import java.util.Random;
 /**
  * 随机生成工具类
  *
- * @author Hoshea
+ * @author Huaxi Jiang
  */
 public class RandomUtil {
     private static final int SEED = 42;
