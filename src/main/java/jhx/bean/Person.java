@@ -3,13 +3,12 @@ package jhx.bean;
 import jhx.RandomUtil;
 
 import java.util.List;
-import java.util.UUID;
 
 /**
  * @author Huaxi Jiang
  */
 public class Person {
-    private String id;
+    private long id;
     private String name;
     private String sex;
     private int age;
@@ -18,8 +17,8 @@ public class Person {
 
     private static final int NAME_LEN = 5;
 
-    public Person() {
-        this.id = UUID.randomUUID().toString();
+    public Person(long id) {
+        this.id = id;
         this.name = RandomUtil.getRandomString(NAME_LEN);
         this.sex = RandomUtil.getRandomSex();
         this.age = RandomUtil.getRandomAge();
@@ -27,11 +26,19 @@ public class Person {
         this.features = RandomUtil.getRandomFeatures();
     }
 
-    public String getId() {
+    public Person() {
+        this.name = RandomUtil.getRandomString(NAME_LEN);
+        this.sex = RandomUtil.getRandomSex();
+        this.age = RandomUtil.getRandomAge();
+        this.salary = RandomUtil.getRandomSalary();
+        this.features = RandomUtil.getRandomFeatures();
+    }
+
+    public long getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public void setId(long id) {
         this.id = id;
     }
 
