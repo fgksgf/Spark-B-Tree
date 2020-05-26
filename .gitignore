@@ -1,5 +1,10 @@
-out/
+out/*
 .idea/
 target/
 *.iml
 .DS_Store
+.settings
+.vscode
+.spark-warehouse
+.classpath
+.project
