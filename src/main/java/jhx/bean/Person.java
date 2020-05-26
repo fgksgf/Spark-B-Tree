@@ -15,6 +15,7 @@ public class Person {
     private int salary;
     private List<Float> features;
 
+    private static long count = 1;
     private static final int NAME_LEN = 5;
 
     public Person(long id) {
@@ -27,6 +28,8 @@ public class Person {
     }
 
     public Person() {
+        this.id = count;
+        count += 1;
         this.name = RandomUtil.getRandomString(NAME_LEN);
         this.sex = RandomUtil.getRandomSex();
         this.age = RandomUtil.getRandomAge();

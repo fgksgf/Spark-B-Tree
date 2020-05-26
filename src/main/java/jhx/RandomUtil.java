@@ -162,7 +162,7 @@ public class RandomUtil {
             JsonWriter writer = new JsonWriter(new FileWriter(fullPath));
             writer.beginArray();
             for (long i = 1; i <= COUNT_PER_MB * mb; ++i) {
-                gson.toJson(new Person(i), Person.class, writer);
+                gson.toJson(new Person(), Person.class, writer);
             }
             writer.endArray();
             writer.close();
