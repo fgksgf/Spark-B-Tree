@@ -161,8 +161,8 @@ public class RandomUtil {
         try {
             JsonWriter writer = new JsonWriter(new FileWriter(fullPath));
             writer.beginArray();
-            for (int i = 0; i < COUNT_PER_MB * mb; ++i) {
-                gson.toJson(new Person(), Person.class, writer);
+            for (long i = 1; i <= COUNT_PER_MB * mb; ++i) {
+                gson.toJson(new Person(i), Person.class, writer);
             }
             writer.endArray();
             writer.close();
@@ -170,12 +170,13 @@ public class RandomUtil {
             e.printStackTrace();
             System.out.println("Failed: generate " + fileName);
         }
-        System.out.println("Done: generate" + fileName);
+        System.out.println("Done: generate " + fileName);
         return fullPath;
     }
 
     /**
      * 从指定路径读取json文件进行查询，将符合条件的结果保存为json文件
+     * 为防止内存溢出，采取边读边筛选边写的方式
      *
      * @param readPath  读取文件完整路径
      * @param writePath 保存结果文件的完整路径
@@ -255,8 +256,10 @@ public class RandomUtil {
                         }
                     }
                 }
+
+                // 仅保存符合条件的id列表
                 if (flag) {
-                    gson.toJson(p, Person.class, writer);
+                    gson.toJson(p.getId(), Long.class, writer);
                 }
             }
             reader.endArray();
