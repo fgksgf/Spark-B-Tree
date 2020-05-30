@@ -31,13 +31,13 @@ public class OAPBTreeRunner extends Runner implements Indexable {
 
     public OAPBTreeRunner(String filename) {
         super(filename);
-        this.sc = new JavaSparkContext(DefaultConfLoader.getDefaultConf());
-        this.sqlsc = new SQLContext(sc);
-        this.dataset = DefaultDataLoader.loadPropleDatasetWithView(this.sqlsc, filename);
     }
 
     @Override
     public void before(String field) {
+        this.sc = new JavaSparkContext(DefaultConfLoader.getDefaultConf());
+        this.sqlsc = new SQLContext(sc);
+        this.dataset = DefaultDataLoader.loadPropleDatasetWithView(this.sqlsc, filename);
         sqlsc.sql("create table oap_test(id long, age int, salary int, sex string, name string, features string) using parquet OPTIONS (path 'hdfs://localhost:9000/user/oap/')");
         sqlsc.sql("insert overwrite table oap_test select * from people");
     }
@@ -66,16 +66,18 @@ public class OAPBTreeRunner extends Runner implements Indexable {
     }
 
     public static void main(String[] args) {
-        OAPBTreeRunner r = new OAPBTreeRunner("out/1MB.json");
+        // OAPBTreeRunner r = new OAPBTreeRunner("out/1MB.json");
 
-        r.before("age");
-        r.createIndex("age");
+        // r.before("age");
+        // r.createIndex("age");
 
-        QueryResult res = r.query(new QueryCondition("age < 30"));
-        for(Long idx: res) {
-            System.out.println(idx);
-        }
-        r.after("age");
+        // QueryResult res = r.query(new QueryCondition("age < 30"));
+        // for(Long idx: res) {
+        //     System.out.println(idx);
+        // }
+        // r.after("age");
+        Runner r = new OAPBTreeRunner("out/1MB.json");
+        System.out.println(r instanceof Indexable);
     }
 
     @Override
