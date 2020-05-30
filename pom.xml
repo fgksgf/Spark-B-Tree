@@ -54,7 +54,14 @@
             <artifactId>parquet-hadoop</artifactId>
             <version>1.10.1</version>
         </dependency>
-
+        
+        <!-- https://mvnrepository.com/artifact/org.apache.hbase/hbase -->
+        <dependency>
+            <groupId>org.apache.hbase</groupId>
+            <artifactId>hbase</artifactId>
+            <version>0.98.11-hadoop2</version>
+            <type>pom</type>
+        </dependency>
 
         <dependency>
             <groupId>com.intel</groupId>
