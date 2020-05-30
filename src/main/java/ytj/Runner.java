@@ -15,7 +15,7 @@ import java.lang.reflect.Field;
 
 public abstract class Runner {
 
-    private final String fileName;
+    protected final String fileName;
 
     public Runner(String filename) {
         this.fileName = filename;
