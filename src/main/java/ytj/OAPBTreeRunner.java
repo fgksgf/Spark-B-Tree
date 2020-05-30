@@ -11,6 +11,7 @@ import org.apache.spark.sql.SQLContext;
 import org.apache.spark.storage.StorageLevel;
 import org.codehaus.janino.Java;
 
+import breeze.util.Index;
 import jhx.bean.QueryCondition;
 
 import org.apache.spark.sql.OapExtensions;
@@ -21,7 +22,7 @@ import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 
 
-public class OAPBTreeRunner extends Runner {
+public class OAPBTreeRunner extends Runner implements Indexable {
 
     private JavaSparkContext sc;
     private SQLContext sqlsc;
@@ -36,24 +37,9 @@ public class OAPBTreeRunner extends Runner {
     }
 
     @Override
-    public void afterCreateIndex(String field) {
-        
-    }
-
-    @Override
-    public void afterDeleteIndex(String field) {
-
-    }
-
-    @Override
-    public void beforeCreateIndex(String field) {
-        sqlsc.sql("create table oap_test(age int, salary int, sex string, name string, features string) using parquet OPTIONS (path 'hdfs://localhost:9000/user/oap/')");
+    public void before(String field) {
+        sqlsc.sql("create table oap_test(id long, age int, salary int, sex string, name string, features string) using parquet OPTIONS (path 'hdfs://localhost:9000/user/oap/')");
         sqlsc.sql("insert overwrite table oap_test select * from people");
-    }
-
-    @Override
-    public void beforeDeleteIndex(String field) {
-
     }
 
     @Override
@@ -68,7 +54,7 @@ public class OAPBTreeRunner extends Runner {
     }
 
     @Override
-    public QueryResult queryWithIndex(QueryCondition condition) {
+    public QueryResult query(QueryCondition condition) {
         String sql = "select * from oap_test where " + condition.toString();
         Dataset<Row> res = sqlsc.sql(sql);
         Dataset<Long> res_id = res.map((Row r) -> {
@@ -80,15 +66,22 @@ public class OAPBTreeRunner extends Runner {
     }
 
     public static void main(String[] args) {
-        Runner r = new OAPBTreeRunner("out/1MB.json");
+        OAPBTreeRunner r = new OAPBTreeRunner("out/1MB.json");
 
-        r.beforeCreateIndex("age");
+        r.before("age");
         r.createIndex("age");
-        r.afterCreateIndex("age");
-        QueryResult res = r.queryWithIndex(new QueryCondition("age < 30"));
+
+        QueryResult res = r.query(new QueryCondition("age < 30"));
         for(Long idx: res) {
             System.out.println(idx);
         }
+        r.after("age");
+    }
+
+    @Override
+    public void after(String field) {
+        // TODO Auto-generated method stub
+        this.sc.close();
     }
 
     

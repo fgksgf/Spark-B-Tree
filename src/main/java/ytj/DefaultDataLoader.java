@@ -14,7 +14,7 @@ public class DefaultDataLoader {
                 .add("age", DataTypes.IntegerType).add("salary", DataTypes.IntegerType)
                 .add("sex", DataTypes.StringType).add("name", DataTypes.StringType)
                 .add("features", DataTypes.StringType);
-        Dataset<Row> dataset = sqlContext.jsonFile("out/1MB.json", schema);
+        Dataset<Row> dataset = sqlContext.jsonFile(filename, schema);
         if(createView) {
             dataset.createOrReplaceTempView("people");
         }
