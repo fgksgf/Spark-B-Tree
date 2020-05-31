@@ -21,7 +21,6 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 
-
 public class OAPBTreeRunner extends Runner implements Indexable {
 
     private JavaSparkContext sc;

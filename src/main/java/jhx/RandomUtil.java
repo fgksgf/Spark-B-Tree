@@ -16,8 +16,12 @@ import java.util.List;
 import java.util.Random;
 
 /**
+<<<<<<< HEAD
  * 随机生成工具类
  *
+=======
+ * 
+>>>>>>> origin/ljl
  * @author Huaxi Jiang
  */
 public class RandomUtil {
@@ -31,18 +35,14 @@ public class RandomUtil {
     private static final int FEATURE_NUM = 5;
     private static final Random RANDOM = new Random(SEED);
 
-    // 每1MB数据对应的大致数据条数
+    // 
     private static final int COUNT_PER_MB = 8300;
 
     private static final String[] OPERATORS = {">", ">=", "<", "<=", "=="};
     private static final String ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     /**
-     * 随机产生一个[left, right]范围内的整数
-     *
-     * @param left  左边界，闭区间
-     * @param right 右边界，闭区间
-     * @return 随机整数
+     * 
      */
     private static int getRandomInt(int left, int right) {
         int ret = 0;
@@ -53,10 +53,6 @@ public class RandomUtil {
     }
 
     /**
-     * 随机产生一个指定长度、仅包含字母的字符串
-     *
-     * @param len 字符串长度
-     * @return 随机字符串
      */
     public static String getRandomString(int len) {
         StringBuilder sb = new StringBuilder();
@@ -68,9 +64,6 @@ public class RandomUtil {
     }
 
     /**
-     * 随机产生一个性别字符串
-     *
-     * @return "male"或者"female"
      */
     public static String getRandomSex() {
         String ret = null;
@@ -83,27 +76,18 @@ public class RandomUtil {
     }
 
     /**
-     * 随机产生一个 [MIN_AGE, MAX_AGE] 范围内的整数年龄
-     *
-     * @return 随机整数年龄
      */
     public static int getRandomAge() {
         return getRandomInt(MIN_AGE, MAX_AGE);
     }
 
     /**
-     * 随机产生一个 [MIN_SALARY, MAX_SALARY] 范围内的整数工资
-     *
-     * @return 随机整数工资
      */
     public static int getRandomSalary() {
         return getRandomInt(MIN_SALARY / SALARY_STEP, MAX_SALARY / SALARY_STEP) * SALARY_STEP;
     }
 
     /**
-     * 随机产生包含 FEATURE_NUM 个随机浮点数的列表
-     *
-     * @return 元素为浮点数的列表
      */
     public static List<Float> getRandomFeatures() {
         List<Float> ret = new ArrayList<Float>();
@@ -114,9 +98,6 @@ public class RandomUtil {
     }
 
     /**
-     * 随机生成一个查询条件
-     *
-     * @return 随机查询条件
      */
     public static QueryCondition getRandomCondition() {
         QueryCondition ret;
@@ -147,11 +128,6 @@ public class RandomUtil {
     }
 
     /**
-     * 在指定目录下随机生成一个指定大小的json数据文件
-     *
-     * @param saveDir 文件保存路径
-     * @param mb      文件大小，单位为MB
-     * @return 生成文件的完整路径
      */
     public static String generateJsonFile(String saveDir, int mb) {
         Gson gson = new Gson();
@@ -175,12 +151,6 @@ public class RandomUtil {
     }
 
     /**
-     * 从指定路径读取json文件进行查询，将符合条件的结果保存为json文件
-     * 为防止内存溢出，采取边读边筛选边写的方式
-     *
-     * @param readPath  读取文件完整路径
-     * @param writePath 保存结果文件的完整路径
-     * @param qc        查询条件
      */
     public static void generateQueryResult(String readPath, String writePath, QueryCondition qc) {
         Gson gson = new Gson();
@@ -257,7 +227,7 @@ public class RandomUtil {
                     }
                 }
 
-                // 仅保存符合条件的id列表
+                // 
                 if (flag) {
                     gson.toJson(p.getId(), Long.class, writer);
                 }

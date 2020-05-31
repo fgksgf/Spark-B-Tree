@@ -63,6 +63,21 @@
             <type>pom</type>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/org.apache.hbase/hbase-server -->
+    <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-server</artifactId>
+        <version>0.98.11-hadoop2</version>
+    </dependency>
+    
+    
+    <!-- https://mvnrepository.com/artifact/org.apache.hbase/hbase-common -->
+    <dependency>
+        <groupId>org.apache.hbase</groupId>
+        <artifactId>hbase-common</artifactId>
+        <version>0.98.11-hadoop2</version>
+    </dependency>
+
         <dependency>
             <groupId>com.intel</groupId>
             <artifactId>oap</artifactId>
@@ -82,6 +97,7 @@
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_2.11</artifactId>
             <version>2.4.4</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -146,6 +162,12 @@
             <scope>provided</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.5.0</version>
+            <scope>compile</scope>
+        </dependency>
 
     </dependencies>
 
@@ -164,6 +186,19 @@
                     <configuration>
                         <source>1.8</source>
                         <target>1.8</target>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <configuration>
+                        <archive>
+                            <manifest>
+                                <addClasspath>true</addClasspath>
+                                <useUniqueVersions>false</useUniqueVersions>
+                                <classpathPrefix>lib/</classpathPrefix>
+                                <mainClass>ljl.TestAll</mainClass>
+                            </manifest>
+                        </archive>
                     </configuration>
                 </plugin>
             </plugins>
