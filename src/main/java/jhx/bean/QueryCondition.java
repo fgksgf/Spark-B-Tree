@@ -26,7 +26,7 @@ public class QueryCondition {
             this.operator = temp[1];
             this.value = Integer.parseInt(temp[2]);
         } else if (temp.length == 5) {
-            this.template = "%d %s %s %s %d";
+            this.template = "%s %s %d and %s %s %d";
             this.isTypeOne = false;
 
             this.leftValue = Integer.parseInt(temp[0]);
@@ -49,7 +49,7 @@ public class QueryCondition {
 
     public QueryCondition(int leftValue, String leftOperator, String field, String rightOperator, int rightValue) {
         // v1 < field < v2; v1 < field <= v2; v1 <= field < v2; v1 <= field <= v2
-        this.template = "%d %s %s %s %d";
+        this.template = "%s %s %d and %s %s %d";
         this.isTypeOne = false;
 
         this.leftValue = leftValue;
@@ -64,7 +64,7 @@ public class QueryCondition {
         if (isTypeOne) {
             return String.format(template, field, operator, value);
         } else {
-            return String.format(template, leftValue, leftOperator, field, rightOperator, rightValue);
+            return String.format(template, field, leftOperator, leftValue, field, rightOperator, rightValue);
         }
     }
 
