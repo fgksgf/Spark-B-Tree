@@ -53,17 +53,16 @@ public class OAPBTreeRunner extends Runner implements Indexable {
     }
 
     @Override
-    //public QueryResult query(QueryCondition condition) {
-    public void query(QueryCondition condition) {
+    public QueryResult query(QueryCondition condition) {
         String sql = "select * from oap_test where " + condition.toString();
         Dataset<Row> res = sqlsc.sql(sql);
         res.show();
-        //Dataset<Long> res_id = res.map((Row r) -> {
-        //    return r.getAs("id");
-        //}, Encoders.LONG());
-        //List<Long> res_id_list = res_id.collectAsList();
-        //QueryResult ret = new QueryResult(res_id_list);
-        //return ret;
+        Dataset<Long> res_id = res.map((Row r) -> {
+            return r.getAs("id");
+        }, Encoders.LONG());
+        List<Long> res_id_list = res_id.collectAsList();
+        QueryResult ret = new QueryResult(res_id_list);
+        return ret;
     }
 
     public static void main(String[] args) {
@@ -72,11 +71,11 @@ public class OAPBTreeRunner extends Runner implements Indexable {
         r.before("age");
         r.createIndex("age");
 
-        //QueryResult res = r.query(new QueryCondition("age < 30"));
-        //for(Long idx: res) {
-        //    System.out.println(idx);
-        //}
-        //r.after("age");
+        QueryResult res = r.query(new QueryCondition("age < 30"));
+        for(Long idx: res) {
+            System.out.println(idx);
+        }
+        r.after("age");
         // Runner r = new OAPBTreeRunner("out/1MB.json");
         // System.out.println(r instanceof Indexable);
     }
@@ -84,7 +83,6 @@ public class OAPBTreeRunner extends Runner implements Indexable {
     @Override
     public void after(String field) {
         // TODO Auto-generated method stub
-        sqlsc.sql("drop table oap_test");
         this.sc.close();
     }
 

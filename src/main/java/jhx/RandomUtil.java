@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * 
+ *
  * @author Huaxi Jiang
  */
 public class RandomUtil {
@@ -30,14 +30,14 @@ public class RandomUtil {
     private static final int FEATURE_NUM = 5;
     private static final Random RANDOM = new Random(SEED);
 
-    // 
+    //
     private static final int COUNT_PER_MB = 8300;
 
     private static final String[] OPERATORS = {">", ">=", "<", "<=", "=="};
     private static final String ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     /**
-     * 
+     *
      */
     private static int getRandomInt(int left, int right) {
         int ret = 0;
@@ -115,7 +115,8 @@ public class RandomUtil {
             int type = RANDOM.nextInt(100) % 5;
             ret = new QueryCondition(field, OPERATORS[type], v);
         } else {
-            int leftType = getRandomInt(2, 3);
+            //int leftType = getRandomInt(2, 3);
+            int leftType = getRandomInt(0, 1);
             int rightType = getRandomInt(2, 3);
             ret = new QueryCondition(v1, OPERATORS[leftType], field, OPERATORS[rightType], v2);
         }
@@ -222,7 +223,7 @@ public class RandomUtil {
                     }
                 }
 
-                // 
+                //
                 if (flag) {
                     gson.toJson(p.getId(), Long.class, writer);
                 }
