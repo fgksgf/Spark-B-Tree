@@ -24,6 +24,8 @@ import org.apache.spark.sql.*;
 
 import org.apache.spark.sql.api.java.UDF1;
 import org.apache.spark.sql.api.java.UDF2;
+import org.apache.spark.sql.expressions.Window;
+import org.apache.spark.sql.expressions.WindowSpec;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.mapdb.*;
@@ -61,8 +63,11 @@ public class SparkBTIndex extends Runner implements Indexable {
                     .add("name", DataTypes.StringType)
                     .add("features", DataTypes.StringType);
             df = ssc.jsonFile(fileName, schema);
-            df.withColumn("offset", JSONOffset.getKey());
-            df.withColumn("length", JSONOffset.getValue());
+            df.col(field);
+            Dataset<Row> offset = ssc.createDataFrame(JSONOffset.getKey(), Integer.class);
+            Dataset<Row> length = ssc.createDataFrame(JSONOffset.getValue(), Integer.class);
+            Dataset<Row> address = offset.join(length);
+            Dataset<Row> pair = address.withColumn(field, df.col(field));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -75,20 +80,18 @@ public class SparkBTIndex extends Runner implements Indexable {
                 .make();
         BTreeMap<Integer, ArrayList<Integer[]>> Btree = db.get("btmap");
         df.sort(asc(field))
-            .foreachPartition(new ForeachPartitionFunction<Row>() {
-                public void call(Iterator<Row> it) throws Exception {
-                    DB db = DBMaker.memoryDB().make();
-                    BTreeMap<Integer, ArrayList<Integer[]>> map = (BTreeMap<Integer, ArrayList<Integer[]>>) db.treeMap("map")
-                                    .keySerializer(Serializer.INTEGER)
-                                    .createOrOpen();
-                    while (it.hasNext()){
-                        Row r = it.next();
-                        Integer key = r.getAs(field);
-                        map.putIfAbsent(key, new ArrayList<>());
-                        map.get(key).add(new Integer[]{r.getAs("offset"), r.getAs("length")});
-                    }
-                    Btree.putAll(map);
+            .foreachPartition((ForeachPartitionFunction<Row>) it -> {
+                DB db1 = DBMaker.memoryDB().make();
+                BTreeMap<Integer, ArrayList<Integer[]>> map = (BTreeMap<Integer, ArrayList<Integer[]>>) db1.treeMap("map")
+                                .keySerializer(Serializer.INTEGER)
+                                .createOrOpen();
+                while (it.hasNext()){
+                    Row r = it.next();
+                    Integer key = r.getAs(field);
+                    map.putIfAbsent(key, new ArrayList<>());
+                    map.get(key).add(new Integer[]{r.getAs("offset"), r.getAs("length")});
                 }
+                Btree.putAll(map);
             });
         db.commit();
     }
