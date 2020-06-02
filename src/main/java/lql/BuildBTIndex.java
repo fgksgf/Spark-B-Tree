@@ -22,8 +22,81 @@ import org.apache.spark.sql.functions.*;
 import org.mapdb.*;
 import javafx.util.Pair;
 
+public class SparkBTIndex extends Runner implements Indexable {
 
-public class BuildBTIndex {
+    private JavaSparkContext sc;
+    private SQLContext ssc;
+
+    private Dataset<Row> df;
+
+    public SparkBTIndex(String fileName) {
+        super(fileName);
+    }
+
+    @Override
+    public void before(String field) {
+        // Initial Spark
+        SparkConf conf = new SparkConf().setMaster("local").setAppName("SparkBTIndex");
+        sc = new JavaSparkContext(conf);
+
+        // Load JSON
+        Pair<ArrayList<Integer>, ArrayList<Integer>> JSONOffset = GetJSONOffset(fileName); 
+        ssc = new SQLContext(sc);
+        StructType schema = new StructType().add("age", DataTypes.IntegerType)
+                            .add("salary", DataTypes.IntegerType)
+                            .add("sex", DataTypes.StringType)
+                            .add("name", DataTypes.StringType)
+                            .add("features", DataTypes.StringType);
+        df = ssc.jsonFile(fileName, schema);
+
+        df.withColumn("offset", JSONOffset.getKey());
+        df.withColumn("length", JSONOffset.getValue());
+    }
+
+    @Override
+    public void createIndex(String field) {
+        BTreeMap<Integer, Pair<Integer, Integer>> map = df
+            .sort(asc(field))
+            .foreachPartition(new JavaForeachPartitionFunc() {
+                @Override
+                public BTreeMap<Integer, Pair<Integer, Integer>> call(Iterator<Row> it) {
+                    BTreeMap<Integer, Array<Pair<Integer, Integer>>> map = db.treeMap("map")
+                                    .keySerializer(Serializer.Integer)
+                                    .createOrOpen();
+                    while (it.hasNext()){
+                        Row r = it.next();
+                        Integer key = r.getAs(field);
+                        map.putIfAbsent(key, new Array<>());
+                        map.get(key).add(new Pair<Integer, Integer>(r.getAs("offset"), r.getAs("length")));
+                    }
+                    return map;
+                }
+            }).reduce(new Function2<BTreeMap<Integer, Pair<Integer, Integer>>, BTreeMap<Integer, Pair<Integer, Integer>>, BTreeMap<Integer, Pair<Integer, Integer>>>() {
+                @Override
+                public BTreeMap<Integer, Pair<Integer, Integer>> call(BTreeMap<Integer, Pair<Integer, Integer>> map1, BTreeMap<Integer, Pair<Integer, Integer>> map2) throws Exception {
+                    map1.putAll(map2);
+                    return map1;
+                }
+            });
+        DB db = DBMaker.newFileDB(new File("BTIndex_" + field))
+            .closeOnJvmShutdown()
+            .make();
+        ConcurrentNavigableMap<Integer, Pair<Integer, Integer>> Btree = db.getTreeMap("btmap");
+        Btree.putAll(map);
+        db.commit();
+    }
+
+    @Override
+    public void deleteIndex(String field) {
+        return;
+    }
+
+    @Override
+    public QueryResult query(QueryCondition condition) {
+        // TODO
+        
+        return nil;
+    }
 
     public static Pair<Integer[], Integer[]> GetJSONOffset(String FilePath) {
          // Prepare for HDFS reading
@@ -61,58 +134,21 @@ public class BuildBTIndex {
         fs.close();
     }
 
+    @Override
+    public void after(String field) {
+        sc.close();
+    }
+
     public static void main(String[] args) {
-        String JSONFILE = args[1];
-        String[] AREAS = Arrays.copyOfRange(args, 2, args.length);
-        
-        // Initial Spark
-        SparkConf conf = new SparkConf().setMaster("local").setAppName("BuildBTIndex");
-        JavaSparkContext sc = new JavaSparkContext(conf);
+        SparkBTIndex r = new SparkBTIndex("out/1MB.json");
 
-        // Load JSON
-        Pair<ArrayList<Integer>, ArrayList<Integer>> JSONOffset = GetJSONOffset(JSONFILE); 
-        SQLContext ssc = new SQLContext(sc);
-        StructType schema = new StructType().add("age", DataTypes.IntegerType)
-                            .add("salary", DataTypes.IntegerType)
-                            .add("sex", DataTypes.StringType)
-                            .add("name", DataTypes.StringType)
-                            .add("features", DataTypes.StringType);
-        Dataset<Row> df = ssc.jsonFile(JSONFILE, schema);
-       // DataFrame df = ssc.read().json("JSONFILE");
+        r.before("age");
+        r.createIndex("age");
 
-        df.withColumn("offset", JSONOffset.getKey());
-        df.withColumn("length", JSONOffset.getValue());
-
-        for (int i = 0;i < AREAS.length;i++) {
-            BTreeMap<Integer, Pair<Integer, Integer>> map = df
-                .sort(asc(AREAS[i]))
-                .foreachPartition(new JavaForeachPartitionFunc() {
-                    @Override
-                    public BTreeMap<Integer, Pair<Integer, Integer>> call(Iterator<Row> it) {
-                        BTreeMap<Integer, Array<Pair<Integer, Integer>>> map = db.treeMap("map")
-                                        .keySerializer(Serializer.Integer)
-                                        .createOrOpen();
-                        while (it.hasNext()){
-                            Row r = it.next();
-                            Integer key = r.getAs(AREAS[i]);
-                            map.putIfAbsent(key, new Array<>());
-                            map.get(key).add(new Pair<Integer, Integer>(r.getAs("offset"), r.getAs("length")));
-                        }
-                        return map;
-                    }
-                }).reduce(new Function2<BTreeMap<Integer, Pair<Integer, Integer>>, BTreeMap<Integer, Pair<Integer, Integer>>, BTreeMap<Integer, Pair<Integer, Integer>>>() {
-                    @Override
-                    public BTreeMap<Integer, Pair<Integer, Integer>> call(BTreeMap<Integer, Pair<Integer, Integer>> map1, BTreeMap<Integer, Pair<Integer, Integer>> map2) throws Exception {
-                        map1.putAll(map2);
-                        return map1;
-                    }
-                });
-            DB db = DBMaker.newFileDB(new File("BTIndex_" + AREAS[i]))
-                .closeOnJvmShutdown()
-                .make();
-            ConcurrentNavigableMap<Integer, Pair<Integer, Integer>> Btree = db.getTreeMap("btmap");
-            Btree.putAll(map);
-            db.commit();
+        QueryResult res = r.query(new QueryCondition("age < 30"));
+        for(Long idx: res) {
+            System.out.println(idx);
         }
+        r.after("age");
     }
 }
