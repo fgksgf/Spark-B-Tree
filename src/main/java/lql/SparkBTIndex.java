@@ -4,6 +4,7 @@ import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Iterator;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -55,25 +56,25 @@ public class SparkBTIndex extends Runner implements Indexable {
 
     @Override
     public void createIndex(String field) {
-        BTreeMap<Integer, Pair<Integer, Integer>> map = df
+        BTreeMap<Integer, Integer[]> map = df
             .sort(asc(field))
             .foreachPartition(new JavaForeachPartitionFunc() {
                 @Override
-                public BTreeMap<Integer, Pair<Integer, Integer>> call(Iterator<Row> it) {
-                    BTreeMap<Integer, Array<Pair<Integer, Integer>>> map = db.treeMap("map")
+                public BTreeMap<Integer, Integer[]> call(Iterator<Row> it) {
+                    BTreeMap<Integer, Array<Integer[]>> map = db.treeMap("map")
                                     .keySerializer(Serializer.Integer)
                                     .createOrOpen();
                     while (it.hasNext()){
                         Row r = it.next();
                         Integer key = r.getAs(field);
                         map.putIfAbsent(key, new Array<>());
-                        map.get(key).add(new Pair<Integer, Integer>(r.getAs("offset"), r.getAs("length")));
+                        map.get(key).add(new Integer[]{r.getAs("offset"), r.getAs("length")});
                     }
                     return map;
                 }
-            }).reduce(new Function2<BTreeMap<Integer, Pair<Integer, Integer>>, BTreeMap<Integer, Pair<Integer, Integer>>, BTreeMap<Integer, Pair<Integer, Integer>>>() {
+            }).reduce(new Function2<BTreeMap<Integer, Integer[]>, BTreeMap<Integer, Integer[]>, BTreeMap<Integer, Integer[]>>() {
                 @Override
-                public BTreeMap<Integer, Pair<Integer, Integer>> call(BTreeMap<Integer, Pair<Integer, Integer>> map1, BTreeMap<Integer, Pair<Integer, Integer>> map2) throws Exception {
+                public BTreeMap<Integer, Integer[]> call(BTreeMap<Integer, Integer[]> map1, BTreeMap<Integer, Integer[]> map2) throws Exception {
                     map1.putAll(map2);
                     return map1;
                 }
@@ -81,7 +82,7 @@ public class SparkBTIndex extends Runner implements Indexable {
         DB db = DBMaker.newFileDB(new File("BTIndex_" + field))
             .closeOnJvmShutdown()
             .make();
-        ConcurrentNavigableMap<Integer, Pair<Integer, Integer>> Btree = db.getTreeMap("btmap");
+        ConcurrentNavigableMap<Integer, Integer[]> Btree = db.getTreeMap("btmap");
         Btree.putAll(map);
         db.commit();
     }
@@ -93,13 +94,94 @@ public class SparkBTIndex extends Runner implements Indexable {
 
     @Override
     public QueryResult query(QueryCondition condition) {
-        // TODO
-        
-        return nil;
+        // load BTree
+        DB db = DBMaker.newFileDB(new File("BTIndex_" + field)).make();
+        BTreeMap<Integer, Integer[]> Btree = db.getTreeMap("btmap");
+        Iterator<Integer[]> V;
+
+        // range fliter
+        if (condition.isTypeOne()) {
+            String operator = condition.getOperator();
+            int value = condition.getValue();
+
+            switch (operator) {
+                case ">":
+                    V = Btree.valueIterator(value + 1, false, 0, true);
+                    break;
+                case ">=":
+                    V = Btree.valueIterator(value, false, 0, true);
+                    break;
+                case "<":
+                    V = Btree.valueIterator(0, true, value - 1, false);
+                    break;
+                case "<=":
+                    V = Btree.valueIterator(0, true, value, false);
+                    break;
+            }
+        } else {
+            String loperator = condition.getLeftOperator();
+            String roperator = condition.getRightOperator();
+            int lvalue = condition.getLeftValue();
+            int rvalue = condition.getRightValue();
+            
+            Bool arrowDirection = false;
+            switch (loperator) {
+                case ">":
+                    lvalue -= 1;
+                    arrowDirection = true;
+                    break;
+                case "<":
+                    lvalue += 1;
+                    break;
+            }
+            switch (roperator) {
+                case ">":
+                    rvalue += 1;
+                    break;
+                case "<":
+                    rvalue -= 1;
+                    break;
+            }
+            if (arrowDirection) {
+                V = Btree.valueIterator(rvalue, false, lvalue, false);
+            } else {
+                V = Btree.valueIterator(lvalue, false, rvalue, false);
+            }
+        }
+
+        // Load data using spark
+        JavaRDD<Integer[]> RDD = sc.parallelize(V);
+        RDD.sort(asc(field))
+            .foreachPartition(new JavaForeachPartitionFunc() {
+                @Override
+                public BTreeMap<Integer, Integer[]> call(Iterator<Integer[]> it) {
+                    FileSystem fs = FileSystem.get(URI.create(FilePath), new Configuration());
+                    FSDataInputStream in_stream = fs.open(new Path(FilePath));
+                    while (it.hasNext()){
+                        Integer[] n = it.next();
+                        int offset = n[0], length = n[1];
+
+                        // load content
+                        byte[] buffer = new byte[length];
+                        in_stream.read(offset, buffer, 0, length);
+                        String json = new String(buffer);
+
+                        // TODO parse json and generate new Row
+                        Row r = new Row();
+                    }
+                    return map;
+                }
+            })
+            .map((Row r) -> {
+                return r.getAs("id");
+            }, Encoders.LONG());
+        List<Long> res_id_list = res_id.collectAsList();
+        QueryResult ret = new QueryResult(res_id_list);
+        return ret;
     }
 
     public static Pair<Integer[], Integer[]> GetJSONOffset(String FilePath) {
-         // Prepare for HDFS reading
+        // Prepare for HDFS reading
         FileSystem fs = FileSystem.get(URI.create(FilePath), new Configuration());
         FSDataInputStream in_stream = fs.open(new Path(FilePath));
         BufferedReader in = new BufferedReader(new InputStreamReader(in_stream));
