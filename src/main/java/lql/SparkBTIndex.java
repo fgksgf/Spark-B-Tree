@@ -23,17 +23,20 @@ import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.mapdb.*;
 
+import scala.Function1;
 import ytj.Indexable;
 import ytj.QueryResult;
 import ytj.Runner;
 
 import static org.apache.spark.sql.functions.*;
 
-public class SparkBTIndex extends Runner implements Indexable {
+public class SparkBTIndex extends Runner implements Indexable, Serializable {
 
     private JavaSparkContext sc;
 
     private Dataset<Row> ds;
+
+    private StructType schema;
 
     public SparkBTIndex(String fileName) {
         super(fileName);
@@ -49,7 +52,8 @@ public class SparkBTIndex extends Runner implements Indexable {
         try {
             ArrayList<Address> JSONAddress = GetJSONAddress(fileName);
             SQLContext ssc = new SQLContext(sc);
-            StructType schema = new StructType().add("age", DataTypes.IntegerType)
+            schema = new StructType().add("id", DataTypes.LongType)
+                    .add("age", DataTypes.IntegerType)
                     .add("salary", DataTypes.IntegerType)
                     .add("sex", DataTypes.StringType)
                     .add("name", DataTypes.StringType)
@@ -101,6 +105,8 @@ public class SparkBTIndex extends Runner implements Indexable {
             Btree.putAll(t);
         }
         db.commit();
+
+//        for ()
         db.close();
     }
 
@@ -175,32 +181,20 @@ public class SparkBTIndex extends Runner implements Indexable {
         V.forEachRemaining(list::add);
         // Load data using spark
         JavaRDD<int[]> RDD = sc.parallelize(list);
-        JavaRDD<Long> res_id = RDD.flatMap((FlatMapFunction<int[], Integer[]>) integers -> {
-                    ArrayList<Integer[]> address = new ArrayList<>();
+        JavaRDD<String> jsons = RDD.flatMap((FlatMapFunction<int[], int[]>) integers -> {
+                    ArrayList<int[]> address = new ArrayList<>();
                     for (int i = 0;i < integers.length;i+=2)
-                        address.add(new Integer[]{integers[i], integers[i+1]});
+                        address.add(new int[]{integers[i], integers[i+1]});
                     return address.iterator();
                 })
-                .sortBy((Function<Integer[], Long>) integers -> Long.valueOf(integers[0]), true, 1)
-                .mapPartitions((FlatMapFunction<Iterator<Integer[]>, Row>) it -> {
-                    FileSystem fs = FileSystem.get(new Configuration());
-                    FSDataInputStream in_stream = fs.open(new Path(fileName));
-                    ArrayList<String> res = new ArrayList<>();
-                    while (it.hasNext()){
-                        Integer[] n = it.next();
-                        int offset = n[0], length = n[1];
-                        // load content
-                        byte[] buffer = new byte[length];
-                        in_stream.read(offset, buffer, 0, length);
-                        String json = new String(buffer);
-                        res.add(json);
-                    }
-                    Dataset<Row> rows = new SQLContext(sc).read().json(sc.parallelize(res));
-                    fs.close();
-                    in_stream.close();
-                    return rows.collectAsList().iterator();
-                }).map((Function<Row, Long>) row -> row.getAs("id"));
-        List<Long> res_id_list = res_id.collect();
+                .sortBy((Function<int[], Long>) integers -> Long.valueOf(integers[0]), true, 1)
+                .mapPartitions(new PartitionsMapper(fileName));
+        SQLContext ssc = new SQLContext(sc);
+        Dataset<Row> JSONRDD = ssc.jsonRDD(jsons, schema);
+        Dataset<Long> res_id = JSONRDD.map((Row r) -> {
+            return r.getAs("id");
+        }, Encoders.LONG());
+        List<Long> res_id_list = res_id.collectAsList();
         QueryResult ret = new QueryResult(res_id_list);
         return ret;
     }
@@ -251,10 +245,10 @@ public class SparkBTIndex extends Runner implements Indexable {
         r.before("age");
         r.createIndex("age");
 
-         QueryResult res = r.query(new QueryCondition("age < 30"));
-         for(Long idx: res) {
-             System.out.println(idx);
-         }
+        QueryResult res = r.query(new QueryCondition("age < 30"));
+        for(Long idx: res) {
+            System.out.println(idx);
+        }
         r.after("age");
     }
 }
