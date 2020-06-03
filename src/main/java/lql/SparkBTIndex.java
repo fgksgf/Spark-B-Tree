@@ -1,16 +1,12 @@
 package lql;
 
 import java.io.*;
-import java.lang.reflect.Array;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.BiConsumer;
 
-import com.fasterxml.jackson.databind.ser.std.ArraySerializerBase;
-import com.twitter.chill.java.ArraysAsListSerializer;
 import jhx.bean.QueryCondition;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -25,11 +21,8 @@ import org.apache.spark.sql.*;
 import org.apache.spark.sql.expressions.Window;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
-import org.apache.spark.streaming.dstream.DStream;
-import org.apache.spark.util.ClosureCleaner$;
 import org.mapdb.*;
-import parquet.org.codehaus.jackson.map.ser.ArraySerializers;
-import parquet.org.codehaus.jackson.map.ser.std.StdArraySerializers;
+
 import ytj.Indexable;
 import ytj.QueryResult;
 import ytj.Runner;
