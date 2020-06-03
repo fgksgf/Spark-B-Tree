@@ -25,7 +25,6 @@ public class PartitionsMapper implements FlatMapFunction<Iterator<int[]>, String
         while (iterator.hasNext()){
             int[] n = iterator.next();
             int offset = n[0], length = n[1];
-            System.out.println(offset + ">>>>" + length);
             // load content
             byte[] buffer = new byte[length];
             in_stream.read(offset, buffer, 0, length);
