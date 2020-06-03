@@ -4,10 +4,13 @@ import java.io.*;
 import java.lang.reflect.Array;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.BiConsumer;
 
+import com.fasterxml.jackson.databind.ser.std.ArraySerializerBase;
+import com.twitter.chill.java.ArraysAsListSerializer;
 import jhx.bean.QueryCondition;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -19,9 +22,14 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.*;
 import org.apache.spark.sql.*;
 
+import org.apache.spark.sql.expressions.Window;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
+import org.apache.spark.streaming.dstream.DStream;
+import org.apache.spark.util.ClosureCleaner$;
 import org.mapdb.*;
+import parquet.org.codehaus.jackson.map.ser.ArraySerializers;
+import parquet.org.codehaus.jackson.map.ser.std.StdArraySerializers;
 import ytj.Indexable;
 import ytj.QueryResult;
 import ytj.Runner;
@@ -54,9 +62,9 @@ public class SparkBTIndex extends Runner implements Indexable {
                     .add("name", DataTypes.StringType)
                     .add("features", DataTypes.StringType);
             Dataset<Row> json = ssc.jsonFile(fileName, schema);
-            json = json.withColumn("__id", monotonicallyIncreasingId());
+            json = json.withColumn("__id", row_number().over(Window.orderBy(lit(1))));
             Dataset<Row> address = ssc.createDataFrame(JSONAddress, Address.class);
-            address = address.withColumn("__id", monotonicallyIncreasingId());
+            address = address.withColumn("__id", row_number().over(Window.orderBy(lit(1))));
             ds = json.join(address, "__id");
         } catch (Exception e) {
             e.printStackTrace();
@@ -68,33 +76,39 @@ public class SparkBTIndex extends Runner implements Indexable {
         DB db = DBMaker.fileDB(new File("BTIndex_" + field))
                 .closeOnJvmShutdown()
                 .make();
-        BTreeMap<Integer, ArrayList<Integer[]>> Btree = db.get("btmap");
-        BTreeMap<Integer, ArrayList<Integer[]>> result = ds.sort(asc(field))
-            .toJavaRDD()
-            .mapPartitions((FlatMapFunction<Iterator<Row>, BTreeMap<Integer, ArrayList<Integer[]>>>) it -> {
-                DB db1 = DBMaker.memoryDB().make();
-                BTreeMap<Integer, ArrayList<Integer[]>> map = (BTreeMap<Integer, ArrayList<Integer[]>>) db1.treeMap("map")
-                        .keySerializer(Serializer.INTEGER)
-                        .createOrOpen();
-                while (it.hasNext()){
-                    Row r = it.next();
-                    Integer key = r.getAs(field);
-                    map.putIfAbsent(key, new ArrayList<>());
-                    map.get(key).add(new Integer[]{r.getAs("offset"), r.getAs("length")});
-                }
-                ArrayList<BTreeMap<Integer, ArrayList<Integer[]>>> res = new ArrayList<>();
-                res.add(map);
-                return res.iterator();
-            })
-            .reduce(new Function2<BTreeMap<Integer, ArrayList<Integer[]>>, BTreeMap<Integer, ArrayList<Integer[]>>, BTreeMap<Integer, ArrayList<Integer[]>>>() {
-                @Override
-                public BTreeMap<Integer, ArrayList<Integer[]>> call(BTreeMap<Integer, ArrayList<Integer[]>> mapA, BTreeMap<Integer, ArrayList<Integer[]>> mapB) throws Exception {
-                    mapB.forEach(mapA::put);
-                    return mapA;
-                }
-            });
-        Btree.putAll(result);
+        BTreeMap<Integer, int[]> Btree = (BTreeMap<Integer, int[]>) db.treeMap("btmap")
+                .keySerializer(Serializer.INTEGER)
+                .valueSerializer(Serializer.INT_ARRAY)
+                .createOrOpen();
+        List<BTreeMap<Integer, int[]>> result = ds.sort(asc(field))
+                .toJavaRDD()
+                .mapPartitions((FlatMapFunction<Iterator<Row>, BTreeMap<Integer, int[]>>) it -> {
+                    DB db1 = DBMaker.memoryDB().make();
+                    BTreeMap<Integer, int[]> map = (BTreeMap<Integer, int[]>) db1.treeMap("map")
+                            .keySerializer(Serializer.INTEGER)
+                            .valueSerializer(Serializer.INT_ARRAY)
+                            .createOrOpen();
+
+                    while (it.hasNext()){
+                        Row r = it.next();
+                        Integer key = r.getAs(field);
+                        map.putIfAbsent(key, new int[]{});
+                        int a[] = map.get(key);
+                        int b[] = Arrays.copyOf(a, a.length + 2);
+                        b[a.length] = r.getAs("offset");
+                        b[a.length + 1] = r.getAs("length");
+                        map.put(key, b);
+                    }
+                    db1.commit();
+                    ArrayList<BTreeMap<Integer, int[]>> res = new ArrayList<>();
+                    res.add(map);
+                    return res.iterator();
+                }).collect();
+        for (java.util.concurrent.ConcurrentMap t : result) {
+            Btree.putAll(t);
+        }
         db.commit();
+        db.close();
     }
 
     @Override
@@ -111,8 +125,8 @@ public class SparkBTIndex extends Runner implements Indexable {
     public QueryResult query(QueryCondition condition) {
         // load BTree
         DB db = DBMaker.fileDB(new File("BTIndex_" + condition.getField())).make();
-        BTreeMap<Integer, Integer[]> Btree = db.get("btmap");
-        Iterator<Integer[]> V = null;
+        BTreeMap<Integer, int[]> Btree = (BTreeMap<Integer, int[]>) db.treeMap("btmap").createOrOpen();
+        Iterator<int[]> V = null;
 
         // range fliter
         if (condition.isTypeOne()) {
@@ -138,7 +152,7 @@ public class SparkBTIndex extends Runner implements Indexable {
             String roperator = condition.getRightOperator();
             int lvalue = condition.getLeftValue();
             int rvalue = condition.getRightValue();
-            
+
             boolean arrowDirection = false;
             switch (loperator) {
                 case ">":
@@ -163,29 +177,36 @@ public class SparkBTIndex extends Runner implements Indexable {
                 V = Btree.valueIterator(lvalue, false, rvalue, false);
             }
         }
-
+        // Add each element of iterator to the List
+        ArrayList<int[]> list = new ArrayList<>();
+        V.forEachRemaining(list::add);
         // Load data using spark
-        JavaRDD<ArrayList<Integer[]>> RDD = sc.parallelize((ArrayList<ArrayList<Integer[]>>) V);
-        JavaRDD<Long> res_id = RDD.flatMap((FlatMapFunction<ArrayList<Integer[]>, Integer[]>) integers -> integers.iterator())
+        JavaRDD<int[]> RDD = sc.parallelize(list);
+        JavaRDD<Long> res_id = RDD.flatMap((FlatMapFunction<int[], Integer[]>) integers -> {
+                    ArrayList<Integer[]> address = new ArrayList<>();
+                    for (int i = 0;i < integers.length;i+=2)
+                        address.add(new Integer[]{integers[i], integers[i+1]});
+                    return address.iterator();
+                })
                 .sortBy((Function<Integer[], Long>) integers -> Long.valueOf(integers[0]), true, 1)
                 .mapPartitions((FlatMapFunction<Iterator<Integer[]>, Row>) it -> {
-                    FileSystem fs = FileSystem.get(URI.create(fileName), new Configuration());
+                    FileSystem fs = FileSystem.get(new Configuration());
                     FSDataInputStream in_stream = fs.open(new Path(fileName));
                     ArrayList<String> res = new ArrayList<>();
                     while (it.hasNext()){
                         Integer[] n = it.next();
                         int offset = n[0], length = n[1];
-
                         // load content
                         byte[] buffer = new byte[length];
                         in_stream.read(offset, buffer, 0, length);
                         String json = new String(buffer);
                         res.add(json);
                     }
-                    SQLContext ssc = new SQLContext(sc);
-                    Dataset<Row> rows = ssc.read().json(sc.parallelize(res));
+                    Dataset<Row> rows = new SQLContext(sc).read().json(sc.parallelize(res));
+                    fs.close();
+                    in_stream.close();
                     return rows.collectAsList().iterator();
-            }).map((Function<Row, Long>) row -> row.getAs("id"));
+                }).map((Function<Row, Long>) row -> row.getAs("id"));
         List<Long> res_id_list = res_id.collect();
         QueryResult ret = new QueryResult(res_id_list);
         return ret;
@@ -199,7 +220,7 @@ public class SparkBTIndex extends Runner implements Indexable {
 
         // Load file
         ArrayList<Address> JSONAddress = new ArrayList<>();
-        
+
         String line;
         int leftp = 0, count = 0;
         int offset = 0, length = 0;
@@ -226,6 +247,7 @@ public class SparkBTIndex extends Runner implements Indexable {
             offset += line.length();
         }
         in.close();
+        in_stream.close();
         fs.close();
         return JSONAddress;
     }
@@ -236,10 +258,10 @@ public class SparkBTIndex extends Runner implements Indexable {
         r.before("age");
         r.createIndex("age");
 
-        QueryResult res = r.query(new QueryCondition("age < 30"));
-        for(Long idx: res) {
-            System.out.println(idx);
-        }
+         QueryResult res = r.query(new QueryCondition("age < 30"));
+         for(Long idx: res) {
+             System.out.println(idx);
+         }
         r.after("age");
     }
 }
