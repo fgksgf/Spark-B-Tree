@@ -43,6 +43,14 @@ public class SparkBTIndex extends Runner implements Indexable, Serializable {
 
     @Override
     public void before(String field) {
+        // Set schema
+        schema = new StructType().add("id", DataTypes.LongType)
+                .add("age", DataTypes.IntegerType)
+                .add("salary", DataTypes.IntegerType)
+                .add("sex", DataTypes.StringType)
+                .add("name", DataTypes.StringType)
+                .add("features", DataTypes.StringType);
+
         // Initial Spark
         SparkConf conf = new SparkConf().setMaster("local").setAppName("SparkBTIndex");
         sc = new JavaSparkContext(conf);
@@ -51,12 +59,6 @@ public class SparkBTIndex extends Runner implements Indexable, Serializable {
         try {
             ArrayList<Address> JSONAddress = GetJSONAddress(fileName);
             SQLContext ssc = new SQLContext(sc);
-            schema = new StructType().add("id", DataTypes.LongType)
-                    .add("age", DataTypes.IntegerType)
-                    .add("salary", DataTypes.IntegerType)
-                    .add("sex", DataTypes.StringType)
-                    .add("name", DataTypes.StringType)
-                    .add("features", DataTypes.StringType);
             Dataset<Row> json = ssc.jsonFile(fileName, schema);
             json = json.withColumn("__id", row_number().over(Window.orderBy(lit(1))));
             Dataset<Row> address = ssc.createDataFrame(JSONAddress, Address.class);
@@ -69,10 +71,10 @@ public class SparkBTIndex extends Runner implements Indexable, Serializable {
 
     @Override
     public void createIndex(String field) {
-        DB db = DBMaker.fileDB(new File("BTIndex_" + field))
+        DB db = DBMaker.fileDB(new File("BTIndex"))
                 .closeOnJvmShutdown()
                 .make();
-        BTreeMap<Integer, int[]> Btree = (BTreeMap<Integer, int[]>) db.treeMap("btmap")
+        BTreeMap<Integer, int[]> Btree = (BTreeMap<Integer, int[]>) db.treeMap(field)
                 .keySerializer(Serializer.INTEGER)
                 .valueSerializer(Serializer.INT_ARRAY)
                 .createOrOpen();
@@ -109,7 +111,8 @@ public class SparkBTIndex extends Runner implements Indexable, Serializable {
 
     @Override
     public void deleteIndex(String field) {
-        return;
+        File file = new File("BTIndex");
+        file.delete();
     }
 
     @Override
@@ -120,8 +123,8 @@ public class SparkBTIndex extends Runner implements Indexable, Serializable {
     @Override
     public QueryResult query(QueryCondition condition) {
         // load BTree
-        DB db = DBMaker.fileDB(new File("BTIndex_" + condition.getField())).make();
-        BTreeMap<Integer, int[]> Btree = (BTreeMap<Integer, int[]>) db.treeMap("btmap").createOrOpen();
+        DB db = DBMaker.fileDB(new File("BTIndex")).make();
+        BTreeMap<Integer, int[]> Btree = (BTreeMap<Integer, int[]>) db.treeMap(condition.getField()).createOrOpen();
         Iterator<int[]> V = null;
 
 
@@ -174,11 +177,14 @@ public class SparkBTIndex extends Runner implements Indexable, Serializable {
                 V = Btree.valueIterator(lvalue, false, rvalue, false);
             }
         }
-        Btree.close();
 
         // Add each element of iterator to the List
         ArrayList<int[]> list = new ArrayList<>();
-        V.forEachRemaining(list::add);
+        if (V != null) {
+            V.forEachRemaining(list::add);
+        }
+
+        Btree.close();
 
         // Load data using spark
         JavaRDD<int[]> RDD = sc.parallelize(list);
