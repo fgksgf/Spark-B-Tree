@@ -10,6 +10,7 @@
 
 ### 1. 环境启动
 使用我们提供的docker镜像，然后启动相应的服务。
+docker镜像地址：https://hub.docker.com/repository/docker/tianjyan0/womenshidashujuzu
 ```sh
 cd /home/bdms/homework/project
 ./env.sh
