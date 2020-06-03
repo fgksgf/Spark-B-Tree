@@ -1,10 +1,12 @@
 package lql;
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import jhx.bean.QueryCondition;
 import org.apache.hadoop.conf.Configuration;
@@ -14,15 +16,12 @@ import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.FlatMapFunction;
-import org.apache.spark.api.java.function.ForeachPartitionFunction;
-import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.*;
 import org.apache.spark.sql.*;
 
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.mapdb.*;
-import javafx.util.Pair;
 import ytj.Indexable;
 import ytj.QueryResult;
 import ytj.Runner;
@@ -33,7 +32,7 @@ public class SparkBTIndex extends Runner implements Indexable {
 
     private JavaSparkContext sc;
 
-    private Dataset<Row> df;
+    private Dataset<Row> ds;
 
     public SparkBTIndex(String fileName) {
         super(fileName);
@@ -47,19 +46,18 @@ public class SparkBTIndex extends Runner implements Indexable {
 
         // Load JSON
         try {
-            Pair<ArrayList<Integer>, ArrayList<Integer>> JSONOffset = GetJSONOffset(fileName);
+            ArrayList<Address> JSONAddress = GetJSONAddress(fileName);
             SQLContext ssc = new SQLContext(sc);
             StructType schema = new StructType().add("age", DataTypes.IntegerType)
                     .add("salary", DataTypes.IntegerType)
                     .add("sex", DataTypes.StringType)
                     .add("name", DataTypes.StringType)
                     .add("features", DataTypes.StringType);
-            df = ssc.jsonFile(fileName, schema);
-            df.col(field);
-            Dataset<Row> offset = ssc.createDataFrame(JSONOffset.getKey(), Integer.class);
-            Dataset<Row> length = ssc.createDataFrame(JSONOffset.getValue(), Integer.class);
-            Dataset<Row> address = offset.join(length);
-            Dataset<Row> pair = address.withColumn(field, df.col(field));
+            Dataset<Row> json = ssc.jsonFile(fileName, schema);
+            json = json.withColumn("__id", monotonicallyIncreasingId());
+            Dataset<Row> address = ssc.createDataFrame(JSONAddress, Address.class);
+            address = address.withColumn("__id", monotonicallyIncreasingId());
+            ds = json.join(address, "__id");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -71,20 +69,31 @@ public class SparkBTIndex extends Runner implements Indexable {
                 .closeOnJvmShutdown()
                 .make();
         BTreeMap<Integer, ArrayList<Integer[]>> Btree = db.get("btmap");
-        df.sort(asc(field))
-            .foreachPartition((ForeachPartitionFunction<Row>) it -> {
+        BTreeMap<Integer, ArrayList<Integer[]>> result = ds.sort(asc(field))
+            .toJavaRDD()
+            .mapPartitions((FlatMapFunction<Iterator<Row>, BTreeMap<Integer, ArrayList<Integer[]>>>) it -> {
                 DB db1 = DBMaker.memoryDB().make();
                 BTreeMap<Integer, ArrayList<Integer[]>> map = (BTreeMap<Integer, ArrayList<Integer[]>>) db1.treeMap("map")
-                                .keySerializer(Serializer.INTEGER)
-                                .createOrOpen();
+                        .keySerializer(Serializer.INTEGER)
+                        .createOrOpen();
                 while (it.hasNext()){
                     Row r = it.next();
                     Integer key = r.getAs(field);
                     map.putIfAbsent(key, new ArrayList<>());
                     map.get(key).add(new Integer[]{r.getAs("offset"), r.getAs("length")});
                 }
-                Btree.putAll(map);
+                ArrayList<BTreeMap<Integer, ArrayList<Integer[]>>> res = new ArrayList<>();
+                res.add(map);
+                return res.iterator();
+            })
+            .reduce(new Function2<BTreeMap<Integer, ArrayList<Integer[]>>, BTreeMap<Integer, ArrayList<Integer[]>>, BTreeMap<Integer, ArrayList<Integer[]>>>() {
+                @Override
+                public BTreeMap<Integer, ArrayList<Integer[]>> call(BTreeMap<Integer, ArrayList<Integer[]>> mapA, BTreeMap<Integer, ArrayList<Integer[]>> mapB) throws Exception {
+                    mapB.forEach(mapA::put);
+                    return mapA;
+                }
             });
+        Btree.putAll(result);
         db.commit();
     }
 
@@ -182,14 +191,14 @@ public class SparkBTIndex extends Runner implements Indexable {
         return ret;
     }
 
-    public static Pair<ArrayList<Integer>, ArrayList<Integer>> GetJSONOffset(String FilePath) throws IOException {
+    public static ArrayList<Address> GetJSONAddress(String FilePath) throws IOException {
         // Prepare for HDFS reading
         FileSystem fs = FileSystem.get(URI.create(FilePath), new Configuration());
         FSDataInputStream in_stream = fs.open(new Path(FilePath));
         BufferedReader in = new BufferedReader(new InputStreamReader(in_stream));
 
         // Load file
-        Pair<ArrayList<Integer>, ArrayList<Integer>> JSONOffset = new Pair<>(new ArrayList<>(), new ArrayList<>());
+        ArrayList<Address> JSONAddress = new ArrayList<>();
         
         String line;
         int leftp = 0, count = 0;
@@ -207,8 +216,10 @@ public class SparkBTIndex extends Runner implements Indexable {
                     // A record
                     if (count == 0) {
                         length = offset + i - leftp;
-                        JSONOffset.getKey().add(leftp);
-                        JSONOffset.getValue().add(length);
+                        Address a = new Address();
+                        a.setLength(length);
+                        a.setOffset(leftp);
+                        JSONAddress.add(a);
                     }
                 }
             }
@@ -216,7 +227,7 @@ public class SparkBTIndex extends Runner implements Indexable {
         }
         in.close();
         fs.close();
-        return JSONOffset;
+        return JSONAddress;
     }
 
     public static void main(String[] args) {
