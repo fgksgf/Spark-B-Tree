@@ -6,8 +6,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import jhx.bean.QueryCondition;
 import org.apache.hadoop.conf.Configuration;
@@ -25,7 +23,6 @@ import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.mapdb.*;
 
-import scala.Function1;
 import ytj.Indexable;
 import ytj.QueryResult;
 import ytj.Runner;
