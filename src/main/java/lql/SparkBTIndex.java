@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import jhx.bean.QueryCondition;
 import org.apache.hadoop.conf.Configuration;
@@ -105,8 +107,6 @@ public class SparkBTIndex extends Runner implements Indexable, Serializable {
             Btree.putAll(t);
         }
         db.commit();
-
-//        for ()
         db.close();
     }
 
@@ -126,6 +126,7 @@ public class SparkBTIndex extends Runner implements Indexable, Serializable {
         DB db = DBMaker.fileDB(new File("BTIndex_" + condition.getField())).make();
         BTreeMap<Integer, int[]> Btree = (BTreeMap<Integer, int[]>) db.treeMap("btmap").createOrOpen();
         Iterator<int[]> V = null;
+
 
         // range fliter
         if (condition.isTypeOne()) {
@@ -176,9 +177,12 @@ public class SparkBTIndex extends Runner implements Indexable, Serializable {
                 V = Btree.valueIterator(lvalue, false, rvalue, false);
             }
         }
+        Btree.close();
+
         // Add each element of iterator to the List
         ArrayList<int[]> list = new ArrayList<>();
         V.forEachRemaining(list::add);
+
         // Load data using spark
         JavaRDD<int[]> RDD = sc.parallelize(list);
         JavaRDD<String> jsons = RDD.flatMap((FlatMapFunction<int[], int[]>) integers -> {
@@ -223,7 +227,7 @@ public class SparkBTIndex extends Runner implements Indexable, Serializable {
                     count--;
                     // A record
                     if (count == 0) {
-                        length = offset + i - leftp;
+                        length = offset + i - leftp + 1;
                         Address a = new Address();
                         a.setLength(length);
                         a.setOffset(leftp);
