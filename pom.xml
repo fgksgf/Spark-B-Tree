@@ -70,7 +70,7 @@
         <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase</artifactId>
-            <version>0.98.11-hadoop2</version>
+            <version>0.98.12.1-hadoop1</version>
             <type>pom</type>
         </dependency>
 
